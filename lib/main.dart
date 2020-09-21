@@ -3,7 +3,8 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
-
+import 'package:web_socket_channel/web_socket_channel.dart';
+import 'package:web_socket_channel/io.dart';
 import 'package:audioplayer/audioplayer.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -15,9 +16,15 @@ String songsDirectoryPath;
 String localFilePath;
 var kUrl =
     "https://www.mediacollege.com/downloads/sound-effects/nature/forest/rainforest-ambient.mp3";
-
+var title_song = "test";
+var author_song = "test2";
 void main() {
-  runApp(MaterialApp(home: Scaffold(body: Home())));
+  final title = "Oppa";
+  runApp(MaterialApp(home: Scaffold(body:
+   Home(
+     //title:title, 
+     //channel : IOWebSocketChannel.connect('ws://192.168.1.115:5000/ws')
+     ))));
 }
 
 enum PlayerState { stopped, playing, paused }
@@ -185,7 +192,7 @@ class _AudioAppState extends State<AudioApp> {
             print('_loadFile => exception $exception'));
 
     final dir = await getExternalStorageDirectory();
-    final file = File('${dir.path}/audio2.mp3');//change name
+    final file = File('${dir.path}/$author_song-$title_song.mp3');//change name
 
     await file.writeAsBytes(bytes);
     if (await file.exists())
@@ -213,7 +220,7 @@ class _AudioAppState extends State<AudioApp> {
                     
                     new Material(child: _buildPlayer()),
                     localFilePath != null
-                        ? new Text(localFilePath)
+                        ? new Text(author_song + " - " + title_song)
                         : new Container(),
                     new Padding(
                       padding: const EdgeInsets.all(8.0),
@@ -240,6 +247,9 @@ class _AudioAppState extends State<AudioApp> {
                             
                           ]),
                     ),
+                    localFilePath != null
+                        ? new Text(localFilePath + "  -  LAST downloaded")
+                        : new Container(),
                     // new RaisedButton(
                     //           onPressed: () => someAction(myController.text),
                     //           child: new Text('search'),
@@ -353,6 +363,13 @@ class _AudioAppState extends State<AudioApp> {
 
 
 class Home extends StatefulWidget {
+
+  // final String title;
+  // final WebSocketChannel channel;
+
+  // Home({Key key, @required this.title, @required this.channel})
+  //     : super(key: key);
+
  @override
  State<StatefulWidget> createState() {
     return _HomeState();
@@ -367,42 +384,101 @@ class _HomeState extends State<Home>  with SingleTickerProviderStateMixin{
   //static GlobalKey<_SearchState> _keyChild2 = GlobalKey<_SearchState>();
 
   //final List<Widget> _children = [Library(onCountSelected: ()=>{_keyChild1.currentState.updateText()},),AudioApp(key: _keyChild1),Search(onCountSelected: ()=>_keyChild1.currentState.playSongOnline())];
-  final List<Widget> _children = [AudioApp(key: _keyChild1),Library(onCountSelected: ()=>{_keyChild1.currentState.updateText()},),Search(onCountSelected: ()=>_keyChild1.currentState.playSongOnline())];
+  final List<Widget> _children = [
+    AudioApp(key: _keyChild1),
+    Library(onCountSelected: ()=>{_keyChild1.currentState.updateText()},),
+    Search(onCountSelected: ()=>_keyChild1.currentState.playSongOnline(),
+    title: "That's Search",
+    channel : IOWebSocketChannel.connect('ws://192.168.1.115:5000/ws'))];
 
 
 void onTabTapped(int index) {
   //_keyChild1.currentState.updateText("Update from Parent");
+  if (index == 3)
+  {
+    //_sendMessage("pip123", "mobile");
+  }
+  else{
    setState(() {
      _currentIndex = index;
    });
+  }
  }
  @override
  Widget build(BuildContext context) {
    return Scaffold(
-     body: IndexedStack(
+     body: Stack(children: <Widget>[
+       IndexedStack(
        children: _children,
        index: _currentIndex,
      ),
+    //  StreamBuilder(
+    //           stream: widget.channel.stream,
+    //           builder: (context, snapshot) {
+    //             if(snapshot.hasData)
+    //             {
+    //               print(snapshot.data);
+    //             }
+    //             return Padding(
+    //               padding: const EdgeInsets.symmetric(vertical: 24.0),
+    //               child: Text(snapshot.hasData ? '${snapshot.data}' : ''),
+    //             );
+    //           },
+    //         ), 
+            ],),
      bottomNavigationBar: BottomNavigationBar(
+       //backgroundColor: Color(0xff00BCD1),
        onTap: onTabTapped, // new
        currentIndex: _currentIndex, 
        items: [
          BottomNavigationBarItem(
+           backgroundColor: Color(0xff00BCD1),
            icon: new Icon(Icons.library_music),
-           title: new Text('Library'),
+           title: new Text('Player'),
          ),
          BottomNavigationBarItem(
            icon: new Icon(Icons.library_music),
-           title: new Text('asd'),
+           title: new Text('Library'),
          ),
         BottomNavigationBarItem(
            icon: new Icon(Icons.library_music),
-           title: new Text('asd'),
+           title: new Text('Search'),
          ),
+        //  BottomNavigationBarItem(
+        //    icon: new Icon(Icons.library_music),
+        //    title: new Text('Socket'),
+        //  ),
        ],
      ),
+    //  floatingActionButton: FloatingActionButton(
+    //     onPressed: _sendMessage,
+    //     tooltip: 'Send message',
+    //     child: Icon(Icons.send),
+    //   ),
    );
  }
+//  void _sendMessage(String text, String type1) async{
+//     // http.Response response = await http.get(
+//     //     "https://sun9-12.userapi.com/c858120/v858120946/50797/p_PJuPB3En4.jpg",
+//     //   );
+//     //String _base64 = base64Encode(response.bodyBytes);
+//     //print(_base64);
+    
+//     widget.channel.sink.add(
+//         json.encode(
+//         {
+//             "type": type1,
+//             'encodings': text
+//         }
+//         )
+//     );
+    
+//   }
+  @override
+  void dispose() {
+    //widget.channel.sink.close();
+    super.dispose();
+  }
 }
 
 
@@ -413,8 +489,13 @@ void onTabTapped(int index) {
 class Search extends StatefulWidget{
 
   final VoidCallback onCountSelected;
+  final String title;
+  final WebSocketChannel channel;
 
-  Search({this.onCountSelected});
+  // Home({Key key, @required this.title, @required this.channel})
+  //     : super(key: key);
+
+  Search({this.onCountSelected, @required this.title, @required this.channel});
 
   @override
   State<StatefulWidget> createState() {
@@ -426,11 +507,13 @@ class _SearchState extends State<Search>{
   Future<List<Post>> futurePosts;
   List<String>_suggestions = new List<String>();
   List<Post> songs = new List<Post>();
-  Widget _buildRow(String pair, String url) {
+  List<Post_short> songs_short = new List<Post_short>();
+  Widget _buildRow(String url, String author, String title) {
   return ListTile(
-    onTap: ()=>{print(pair),kUrl = url,widget.onCountSelected()},
+    onTap: ()=>{kUrl = url,author_song= author,title_song= title,
+     widget.onCountSelected()},
     title: Text(
-      pair,
+      author + " - " + title,
     ),
      
   );
@@ -447,34 +530,52 @@ class _SearchState extends State<Search>{
           _suggestions.add(songs[_suggestions.length].artist + " - " +songs[_suggestions.length].title);
           //_suggestions.addAll(songs.sublist(_suggestions.length,_suggestions.length+1)); /*4*/
         }
-        return _buildRow(_suggestions[index], songs[index].url);
+        return _buildRow( songs[index].url, 
+        songs[index].artist, songs[index].title);
       });
 }
   final myController = TextEditingController();
 
-  void someAction(String urlSong)
-  {
-    print(urlSong);
-    futurePosts = fetchPost(urlSong);
-    
-    futurePosts.then((result) {
-      //kUrl2 = result.url;
-      //setstate
-      setState(() {
+  void someActionBuilder(List<Post> result){
+    //setState(() {
         songs.clear();// if not clear added to end of last list
         _suggestions.clear();
         for(int j =0;j<result.length;j++)
         {
           songs.add(result[j]);
+          //print("wowo" + songs[j].title);
         }
-      });
-    });
+      //});
+  }
+
+  void someAction(String urlSong)
+  {
+    _sendMessage(urlSong, "mobile");
+    //print(urlSong);
+    // futurePosts = fetchPost(urlSong);
+    
+    // futurePosts.then((result) {
+    //   //kUrl2 = result.url;
+    //   //setstate
+    //   setState(() {
+    //     songs.clear();// if not clear added to end of last list
+    //     _suggestions.clear();
+    //     for(int j =0;j<result.length;j++)
+    //     {
+    //       songs.add(result[j]);
+    //     }
+    //   });
+    // });
     
   }
   Widget buuilds(){
   List<Widget> A = new List<Widget>();
   for(int j=0;j<songs.length;j++){
-    A.add(_buildRow(songs[j].artist + " - " + songs[j].title, songs[j].url));
+    //A.add(_buildRow(songs[j].type, songs_short[j].encodings));
+    A.add(_buildRow( songs[j].url, 
+        songs[j].artist, songs[j].title));
+
+    //A.add(_buildRow(songs[j].artist + " - " + songs[j].title, songs[j].url));
     // A.add(Container(
     //   height: 50,
     //   color: Colors.amber[600],
@@ -492,7 +593,9 @@ class _SearchState extends State<Search>{
       appBar:  AppBar(
        title: Text('Search'),
      ),
-      body: Center(
+      body: 
+        
+        Center(
         child: new Material(
             elevation: 2.0,
             color: Colors.grey[200],
@@ -508,13 +611,62 @@ class _SearchState extends State<Search>{
                     new TextField(
                       controller: myController,
                     ),
-                    Expanded(child:buuilds())
+              Expanded(child:StreamBuilder(
+              stream: widget.channel.stream,
+              builder: (context, snapshot) {
+                if(snapshot.hasData)
+                {
+                  //print(snapshot.data);
+                  Map userMap = jsonDecode(snapshot.data);
+                  //print(userMap);
+                  List<Post> full_list = new List<Post>();
+                  for(int j=0;j<userMap["encodings"].length;j++)
+                  {
+                    full_list.add(Post.fromJson(userMap["encodings"][j]));
+                    //print(full_list[j].title);
+
+                  }
+                  //var info = Post_short.fromJson(snapshot.data);
+                  //var info = Post_short();
+                  //info.encodings =userMap["encodings"];
+                  //info.type = userMap["type"];
+
+                  //print(info.type);
+
+                  someActionBuilder(full_list);
+                }
+                return buuilds();
+              },
+            )),
                   ]
               )
             )
         )
       )
+      
     );
+  }
+  void _sendMessage(String text, String type1) async{
+    // http.Response response = await http.get(
+    //     "https://sun9-12.userapi.com/c858120/v858120946/50797/p_PJuPB3En4.jpg",
+    //   );
+    //String _base64 = base64Encode(response.bodyBytes);
+    //print(_base64);
+    
+    widget.channel.sink.add(
+        json.encode(
+        {
+            "type": type1,
+            'encodings': text
+        }
+        )
+    );
+    
+  }
+  @override
+  void dispose() {
+    widget.channel.sink.close();
+    super.dispose();
   }
 }
 
@@ -528,6 +680,7 @@ class _SearchState extends State<Search>{
 Future<List<Post>> fetchPost(String name) async {
   print("gpgp");
   print(name);
+  
   final response =
       await http.get('http://10.0.2.2:5000/songs/' + name);
   if (response.statusCode == 200) {
@@ -576,6 +729,27 @@ class Post {
   }
 }
 
+class Post_short {
+ 
+   String type;
+   String encodings;
+
+
+  Post_short({this.type, this.encodings});
+
+  
+
+ 
+
+  factory Post_short.fromJson(Map<String, dynamic> json) {
+    //print(json['url']);
+    return Post_short(
+      type: json['type'],
+      encodings: json['encodings'],
+     
+    );
+  }
+}
 
 
 // LIBRARY
