@@ -14,10 +14,14 @@ import 'package:path_provider/path_provider.dart';
 typedef void OnError(Exception exception);
 String songsDirectoryPath;
 String localFilePath;
-var kUrl =
+String kUrl =
     "https://www.mediacollege.com/downloads/sound-effects/nature/forest/rainforest-ambient.mp3";
-var title_song = "test";
-var author_song = "test2";
+
+String title_song = "test";
+String author_song = "test2";
+bool online = true;
+
+
 void main() {
   final title = "Oppa";
   runApp(MaterialApp(home: Scaffold(body:
@@ -27,10 +31,11 @@ void main() {
      ))));
 }
 
-enum PlayerState { stopped, playing, paused }
+enum PlayerState { stopped, playing, paused, next }
 
 class AudioApp extends StatefulWidget {
-  const AudioApp({Key key}) : super(key: key);
+  final VoidCallback onNextSelected;
+  const AudioApp({Key key, this.onNextSelected}) : super(key: key);
 
   
   @override
@@ -42,6 +47,7 @@ class _AudioAppState extends State<AudioApp> {
   Duration position;
   Future<List<Post>> futurePosts;
   AudioPlayer audioPlayer;
+  bool repeat_flag = false;
 
   void updateText() {
     stop();
@@ -115,6 +121,7 @@ class _AudioAppState extends State<AudioApp> {
       if (s == AudioPlayerState.PLAYING) {
         setState(() => duration = audioPlayer.duration);
       } else if (s == AudioPlayerState.STOPPED) {
+        print("step 2");
         onComplete();
         setState(() {
           position = duration;
@@ -126,6 +133,12 @@ class _AudioAppState extends State<AudioApp> {
         duration = Duration(seconds: 0);
         position = Duration(seconds: 0);
       });
+    });
+  }
+  Future playSome(String url_song) async {
+    await audioPlayer.play(url_song);
+    setState(() {
+      playerState = PlayerState.playing;
     });
   }
 
@@ -147,11 +160,14 @@ class _AudioAppState extends State<AudioApp> {
   }
 
   Future stop() async {
-    await audioPlayer.stop();
+    print("step 0");
     setState(() {
+      print("step 1");
       playerState = PlayerState.stopped;
       position = Duration();
     });
+    await audioPlayer.stop();
+    
   }
 
   Future mute(bool muted) async {
@@ -161,8 +177,85 @@ class _AudioAppState extends State<AudioApp> {
     });
   }
 
-  void onComplete() {
-    setState(() => playerState = PlayerState.stopped);
+  Future onComplete() async{
+    print("step 3");
+    //print("we over");
+    if(playerState == PlayerState.playing)
+    {
+      print("step 4");
+      //setState(() => playerState = PlayerState.stopped);
+      if(repeat_flag){
+        if(online){
+          play();
+        }
+        else{
+          _playLocal();
+        }
+      }
+      else{
+        // play next song with play_next
+        widget.onNextSelected();
+        await audioPlayer.play(kUrl);
+        setState(() {
+          playerState = PlayerState.playing;
+        });
+      }
+    }
+    else{
+      //we already stopped
+    }
+    
+
+    // if (repeat_flag){
+    //   if(online){
+    //     play();
+    //   }
+    //   else{
+    //     _playLocal();
+    //   }
+    // }
+    // else{
+    //   play_next();
+    // }
+
+  }
+  Future play_next() async{
+    //playerState = PlayerState.next;
+    print("next");
+    if (online){
+      print(online);
+      //Search +
+      widget.onNextSelected();
+      
+
+      setState(() {
+        playerState = PlayerState.stopped;
+        position = Duration();
+      });
+      await audioPlayer.stop();
+      
+
+      await audioPlayer.play(kUrl);
+      setState(() {
+        playerState = PlayerState.playing;
+      });
+    }
+    else{
+      //Library ? select next in memory
+    }
+    
+  }
+  void play_random(){
+    print("random");
+  }
+
+  void repeat(){
+    //print("repeat");
+    setState(() {
+      repeat_flag = !repeat_flag;
+    });
+    
+
   }
 
   Future<Uint8List> _loadFileBytes(String url, {OnError onError}) async {
@@ -224,21 +317,31 @@ class _AudioAppState extends State<AudioApp> {
                         : new Container(),
                     new Padding(
                       padding: const EdgeInsets.all(8.0),
-                      child: new Row(
+                      child: Column(children: <Widget>[ 
+                        new Row(
                           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                           children: [
-                            new RaisedButton(
+                            IconButton(
                               onPressed: () => _loadFile(),
-                              child: new Text('Download'),
+                              iconSize: 32.0,
+                              icon: Icon(Icons.cloud_download),
+                              color: Colors.cyan,
                             ),
-                            new RaisedButton(
-                              onPressed: () => _playLocal(),
-                              child: new Text('play local'),
+                            IconButton(
+                              onPressed: () => play_random(),
+                              iconSize: 32.0,
+                              icon: Icon(Icons.call_missed_outgoing),
+                              color: Colors.cyan,
                             ),
-                            new RaisedButton(
-                              onPressed: () => play(),
-                              child: new Text('play online'),
-                            ),
+                            // new RaisedButton(
+                            //   onPressed: () => _playLocal(),
+                            //   child: new Text('play local'),
+                            // ),
+                            // new RaisedButton(
+                            //   onPressed: () => play(),
+                            //   child: new Text('play online'),
+                            // ),
+                           
                             // new RaisedButton(
                             //   onPressed: () => presso(),
                             //   child: new Text('update'),
@@ -246,6 +349,19 @@ class _AudioAppState extends State<AudioApp> {
                             
                             
                           ]),
+                          // Row(
+                          //   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                          //   children: <Widget>[
+                              
+                              
+                          //     new RaisedButton(
+                          //     onPressed: () => play_random(),
+                          //     child: new Text('Random'),
+                          //     ),
+                            
+                          // ],)
+                          ],
+                        )
                     ),
                     localFilePath != null
                         ? new Text(localFilePath + "  -  LAST downloaded")
@@ -293,6 +409,12 @@ class _AudioAppState extends State<AudioApp> {
                 onPressed: isPlaying || isPaused ? () => stop() : null,
                 iconSize: 64.0,
                 icon: Icon(Icons.stop),
+                color: Colors.cyan,
+              ),
+              IconButton(
+                onPressed: () => play_next(),
+                iconSize: 64.0,
+                icon: Icon(Icons.skip_next),
                 color: Colors.cyan,
               ),
             ]),
@@ -349,6 +471,20 @@ class _AudioAppState extends State<AudioApp> {
             icon: Icon(Icons.headset, color: Colors.cyan),
             label: Text('Unmute', style: TextStyle(color: Colors.cyan)),
           ),
+        if (!repeat_flag)
+          FlatButton.icon(
+            onPressed: () => repeat(),
+            icon: Icon(Icons.repeat, color: Colors.grey),
+            label: Text('Repeat', style: TextStyle(color: Colors.grey)),
+          ),
+        if (repeat_flag)
+          FlatButton.icon(
+            onPressed: () => repeat(),
+            //iconSize: 64.0,
+            icon: Icon(Icons.repeat_one, color: Colors.cyan),
+            label: Text('Repeat', style: TextStyle(color: Colors.cyan)),
+            
+          ),
       ],
     );
   }
@@ -381,14 +517,15 @@ class _HomeState extends State<Home>  with SingleTickerProviderStateMixin{
   
   int _currentIndex = 0;
   static GlobalKey<_AudioAppState> _keyChild1 = GlobalKey<_AudioAppState>();
+  static GlobalKey<_SearchState> _keyChild2 = GlobalKey<_SearchState>();
   //static GlobalKey<_SearchState> _keyChild2 = GlobalKey<_SearchState>();
 
   //final List<Widget> _children = [Library(onCountSelected: ()=>{_keyChild1.currentState.updateText()},),AudioApp(key: _keyChild1),Search(onCountSelected: ()=>_keyChild1.currentState.playSongOnline())];
   final List<Widget> _children = [
-    AudioApp(key: _keyChild1),
+    AudioApp(key: _keyChild1, onNextSelected: ()=>{_keyChild2.currentState.getNext()},),
     Library(onCountSelected: ()=>{_keyChild1.currentState.updateText()},),
-    Search(onCountSelected: ()=>_keyChild1.currentState.playSongOnline(),
-    title: "That's Search",
+    Search(key: _keyChild2,onCountSelected: ()=>_keyChild1.currentState.playSongOnline(),
+    title: "Search",
     channel : IOWebSocketChannel.connect('ws://192.168.1.115:5000/ws'))];
 
 
@@ -495,7 +632,7 @@ class Search extends StatefulWidget{
   // Home({Key key, @required this.title, @required this.channel})
   //     : super(key: key);
 
-  Search({this.onCountSelected, @required this.title, @required this.channel});
+  Search({Key key, this.onCountSelected, @required this.title, @required this.channel}): super(key:key);
 
   @override
   State<StatefulWidget> createState() {
@@ -508,9 +645,19 @@ class _SearchState extends State<Search>{
   List<String>_suggestions = new List<String>();
   List<Post> songs = new List<Post>();
   List<Post_short> songs_short = new List<Post_short>();
-  Widget _buildRow(String url, String author, String title) {
+  int numberOfSong = 0;
+
+  void getNext(){
+    numberOfSong++;
+    if (numberOfSong == songs.length){
+      numberOfSong = 0;
+    }
+    kUrl = songs[numberOfSong].url;
+  }
+
+  Widget _buildRow(String url, String author, String title, numberOfSongInList) {
   return ListTile(
-    onTap: ()=>{kUrl = url,author_song= author,title_song= title,
+    onTap: ()=>{numberOfSong = numberOfSongInList, kUrl = url,author_song= author,title_song= title,
      widget.onCountSelected()},
     title: Text(
       author + " - " + title,
@@ -531,7 +678,7 @@ class _SearchState extends State<Search>{
           //_suggestions.addAll(songs.sublist(_suggestions.length,_suggestions.length+1)); /*4*/
         }
         return _buildRow( songs[index].url, 
-        songs[index].artist, songs[index].title);
+        songs[index].artist, songs[index].title,0);
       });
 }
   final myController = TextEditingController();
@@ -573,7 +720,7 @@ class _SearchState extends State<Search>{
   for(int j=0;j<songs.length;j++){
     //A.add(_buildRow(songs[j].type, songs_short[j].encodings));
     A.add(_buildRow( songs[j].url, 
-        songs[j].artist, songs[j].title));
+        songs[j].artist, songs[j].title, j));
 
     //A.add(_buildRow(songs[j].artist + " - " + songs[j].title, songs[j].url));
     // A.add(Container(
